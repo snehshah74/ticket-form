@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Ticket Writer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-dark: #0F6E56;
+    --green-mid: #5DCAA5;
+    --black: #0a0a0a;
+    --white: #fafaf8;
+    --gray-100: #f4f4f0;
+    --gray-200: #e8e8e2;
+    --gray-400: #a0a09a;
+    --gray-600: #6b6b65;
+    --gray-800: #2a2a28;
+    --red: #e53e3e;
+    --amber: #d97706;
+    --blue: #2563eb;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--black);
+    color: var(--white);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(29,158,117,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(29,158,117,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orb */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 40px;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    width: 36px;
+    height: 36px;
+    background: var(--green);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.5px;
+    flex-shrink: 0;
+  }
+
+  .logo-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-400);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .headline {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1.5px;
+    color: var(--white);
+    margin-bottom: 14px;
+  }
+
+  .headline .accent {
+    color: var(--green);
+  }
+
+  .subhead {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--gray-400);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* Form card */
+  .form-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 32px;
+    backdrop-filter: blur(12px);
+  }
+
+  /* Field */
+  .field {
+    margin-bottom: 24px;
+  }
+
+  .field-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .field-label .req {
+    color: var(--green);
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    color: var(--white);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.6;
+    padding: 14px 16px;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    outline: none;
+    resize: none;
+    -webkit-appearance: none;
+  }
+
+  textarea {
+    min-height: 140px;
+  }
+
+  textarea::placeholder, input[type="text"]::placeholder {
+    color: rgba(255,255,255,0.2);
+  }
+
+  textarea:focus, input[type="text"]:focus {
+    border-color: var(--green);
+    background: rgba(29,158,117,0.05);
+    box-shadow: 0 0 0 3px rgba(29,158,117,0.1);
+  }
+
+  /* Type selector */
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .type-option {
+    position: relative;
+  }
+
+  .type-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .type-option label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .type-option label:hover {
+    border-color: rgba(29,158,117,0.4);
+    background: rgba(29,158,117,0.05);
+  }
+
+  .type-option input:checked + label {
+    border-color: var(--green);
+    background: rgba(29,158,117,0.1);
+    box-shadow: 0 0 0 3px rgba(29,158,117,0.1);
+  }
+
+  .type-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .type-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .type-option input:checked + label .type-name {
+    color: var(--green);
+  }
+
+  /* Priority selector */
+  .priority-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .priority-option {
+    position: relative;
+  }
+
+  .priority-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .priority-option label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+  }
+
+  .priority-option label:hover {
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .p-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .priority-option[data-p="Critical"] .p-dot { background: #ef4444; }
+  .priority-option[data-p="High"] .p-dot { background: #f97316; }
+  .priority-option[data-p="Medium"] .p-dot { background: #eab308; }
+  .priority-option[data-p="Low"] .p-dot { background: #6b7280; }
+
+  .priority-option input:checked + label {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.07);
+    color: var(--white);
+  }
+
+  .priority-option[data-p="Critical"] input:checked + label { border-color: #ef4444; color: #fca5a5; background: rgba(239,68,68,0.08); }
+  .priority-option[data-p="High"] input:checked + label { border-color: #f97316; color: #fdba74; background: rgba(249,115,22,0.08); }
+  .priority-option[data-p="Medium"] input:checked + label { border-color: #eab308; color: #fde047; background: rgba(234,179,8,0.08); }
+  .priority-option[data-p="Low"] input:checked + label { border-color: #6b7280; color: #d1d5db; background: rgba(107,114,128,0.08); }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 24px 0;
+  }
+
+  /* Submit button */
+  .submit-btn {
+    width: 100%;
+    height: 54px;
+    background: var(--green);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .submit-btn:hover {
+    background: var(--green-dark);
+    transform: translateY(-1px);
+  }
+
+  .submit-btn:active {
+    transform: translateY(0);
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-arrow {
+    font-size: 18px;
+    transition: transform 0.2s;
+  }
+
+  .submit-btn:hover .btn-arrow {
+    transform: translateX(4px);
+  }
+
+  /* Loading state */
+  .submit-btn.loading .btn-text { display: none; }
+  .submit-btn.loading .btn-arrow { display: none; }
+  .submit-btn:not(.loading) .spinner { display: none; }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: #fca5a5;
+    margin-top: 12px;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* Footer note */
+  .footer-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+
+  .footer-note span {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gray-600);
+    font-weight: 300;
+  }
+
+  .footer-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--gray-600);
+    flex-shrink: 0;
+  }
+
+  /* Success overlay */
+  .success-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--black);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .success-overlay.visible {
+    display: flex;
+    animation: fadeIn 0.4s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+
+  .success-icon {
+    width: 72px;
+    height: 72px;
+    background: rgba(29,158,117,0.15);
+    border: 1px solid rgba(29,158,117,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+
+  .success-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--white);
+  }
+
+  .success-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--gray-400);
+    font-weight: 300;
+    max-width: 400px;
+    line-height: 1.7;
+  }
+
+  .success-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .success-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  .success-link:hover {
+    background: rgba(29,158,117,0.08);
+    border-color: rgba(29,158,117,0.3);
+  }
+
+  .success-link .link-icon { font-size: 18px; }
+  .success-link .link-key {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 400;
+  }
+
+  .new-ticket-btn {
+    margin-top: 8px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 12px 24px;
+    color: var(--gray-400);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .new-ticket-btn:hover {
+    color: var(--white);
+    border-color: rgba(255,255,255,0.3);
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .form-card { padding: 20px; }
+    .priority-grid { grid-template-columns: repeat(2, 1fr); }
+    .headline { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo">AI</div>
+      <span class="logo-name">Ramp · Internal Tools</span>
+    </div>
+    <h1 class="headline">Turn words into<br><span class="accent">tickets.</span></h1>
+    <p class="subhead">Describe a bug or feature in plain English.<br>Claude structures it, creates the Jira ticket, and notifies Slack.</p>
+  </div>
+
+  <div class="form-card">
+    <form id="ticketForm">
+
+      <div class="field">
+        <div class="field-label">
+          What needs to be built or fixed
+          <span class="req">*</span>
+        </div>
+        <textarea
+          id="description"
+          name="description"
+          placeholder="e.g. the expense export to NetSuite shows wrong amounts for multi-currency transactions — it's doubling the conversion rate for EUR invoices submitted after the 15th of the month"
+          required
+        ></textarea>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Type</div>
+        <div class="type-grid">
+          <div class="type-option">
+            <input type="radio" name="type" id="type-bug" value="Bug" checked>
+            <label for="type-bug">
+              <span class="type-icon">🐛</span>
+              <span class="type-name">Bug</span>
+            </label>
+          </div>
+          <div class="type-option">
+            <input type="radio" name="type" id="type-feature" value="Feature">
+            <label for="type-feature">
+              <span class="type-icon">✨</span>
+              <span class="type-name">Feature</span>
+            </label>
+          </div>
+          <div class="type-option">
+            <input type="radio" name="type" id="type-task" value="Task">
+            <label for="type-task">
+              <span class="type-icon">✅</span>
+              <span class="type-name">Task</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Priority hint</div>
+        <div class="priority-grid">
+          <div class="priority-option" data-p="Critical">
+            <input type="radio" name="priority" id="p-critical" value="Critical">
+            <label for="p-critical">
+              <span class="p-dot"></span> Critical
+            </label>
+          </div>
+          <div class="priority-option" data-p="High">
+            <input type="radio" name="priority" id="p-high" value="High">
+            <label for="p-high">
+              <span class="p-dot"></span> High
+            </label>
+          </div>
+          <div class="priority-option" data-p="Medium">
+            <input type="radio" name="priority" id="p-medium" value="Medium" checked>
+            <label for="p-medium">
+              <span class="p-dot"></span> Medium
+            </label>
+          </div>
+          <div class="priority-option" data-p="Low">
+            <input type="radio" name="priority" id="p-low" value="Low">
+            <label for="p-low">
+              <span class="p-dot"></span> Low
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field" style="margin-bottom: 0;">
+        <div class="field-label">Your name</div>
+        <input type="text" id="submittedBy" name="submittedBy" placeholder="Sneh Shah">
+      </div>
+
+    </form>
+
+    <div style="margin-top: 28px;">
+      <button class="submit-btn" id="submitBtn" onclick="submitTicket()">
+        <span class="btn-text">Generate ticket</span>
+        <span class="btn-arrow">→</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <div class="footer-note">
+      <span>Claude-powered</span>
+      <div class="footer-dot"></div>
+      <span>Creates Jira ticket</span>
+      <div class="footer-dot"></div>
+      <span>Notifies Slack</span>
+    </div>
+  </div>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-icon">✓</div>
+  <div class="success-title">Ticket created</div>
+  <p class="success-sub" id="successSummary">Your ticket has been structured by Claude, created in Jira, and posted to Slack.</p>
+
+  <div class="success-links" id="successLinks">
+    <a class="success-link" id="jiraLink" href="#" target="_blank">
+      <span class="link-icon">📋</span>
+      View in Jira
+      <span class="link-key" id="jiraKey">—</span>
+    </a>
+    <a class="success-link" id="slackLink" href="#" target="_blank">
+      <span class="link-icon">💬</span>
+      View in Slack
+      <span class="link-key">→ #tickets</span>
+    </a>
+  </div>
+
+  <button class="new-ticket-btn" onclick="resetForm()">+ Submit another ticket</button>
+</div>
+
+<script>
+  // ⚠️ REPLACE THIS with your n8n webhook URL
+  const WEBHOOK_URL = 'YOUR_N8N_WEBHOOK_URL_HERE';
+
+  // Your Jira base URL for the success link
+  const JIRA_BASE_URL = 'https://YOUR_DOMAIN.atlassian.net';
+
+  async function submitTicket() {
+    const description = document.getElementById('description').value.trim();
+    const submittedBy = document.getElementById('submittedBy').value.trim() || 'Anonymous';
+    const type = document.querySelector('input[name="type"]:checked')?.value || 'Bug';
+    const priority = document.querySelector('input[name="priority"]:checked')?.value || 'Medium';
+
+    if (!description) {
+      showError('Please describe the bug or feature first.');
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    const errorMsg = document.getElementById('errorMsg');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    errorMsg.classList.remove('visible');
+
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          'Describe the bug or feature': description,
+          'Your name (optional)': submittedBy,
+          'type_hint': type,
+          'priority_hint': priority
+        })
+      });
+
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      let data = {};
+      try { data = await response.json(); } catch(e) {}
+
+      // Show success
+      const jiraKey = data.jiraKey || data.key || 'Check Jira';
+      document.getElementById('jiraKey').textContent = jiraKey;
+      document.getElementById('jiraLink').href = `${JIRA_BASE_URL}/browse/${jiraKey}`;
+      document.getElementById('successSummary').textContent =
+        `"${description.substring(0, 80)}${description.length > 80 ? '...' : ''}" — structured by Claude, created in Jira, posted to Slack.`;
+
+      document.getElementById('successOverlay').classList.add('visible');
+
+    } catch(err) {
+      showError('Could not reach the workflow. Check your webhook URL and make sure n8n is published.');
+      console.error(err);
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function resetForm() {
+    document.getElementById('ticketForm').reset();
+    document.getElementById('successOverlay').classList.remove('visible');
+    document.getElementById('errorMsg').classList.remove('visible');
+    document.querySelector('input[name="type"][value="Bug"]').checked = true;
+    document.querySelector('input[name="priority"][value="Medium"]').checked = true;
+  }
+
+  // Auto-resize textarea
+  const textarea = document.getElementById('description');
+  textarea.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.max(140, this.scrollHeight) + 'px';
+  });
+
+  // Submit on Cmd/Ctrl+Enter
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      submitTicket();
+    }
+  });
+</script>
+</body>
+</html>
